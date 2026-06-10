@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -18,9 +18,11 @@ const Navbar = () => {
 		>
 			<div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 sm:px-8 lg:px-12">
 				<Link href="/" className="flex items-center gap-3">
-					<div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-linear-to-br from-indigo-600 to-cyan-500 shadow-lg">
-						<span className="text-sm font-semibold tracking-tight text-white">R</span>
-					</div>
+					<img
+  src="/favicon.ico"
+  alt="ResumeIQ"
+  className="h-10 w-10 rounded-xl"
+/>
 					<div>
 						<p className="text-sm font-semibold tracking-[0.12em] text-slate-900">ResumeIQ</p>
 						<p className="text-xs text-slate-500">AI resume intelligence</p>
