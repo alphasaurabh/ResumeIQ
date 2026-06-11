@@ -142,7 +142,7 @@ const extractTextByType = async ({ buffer, fileName, mimeType }) => {
 		lowerMime.includes("wordprocessingml.document") || lowerName.endsWith(".docx");
 
 	if (isPdf) {
-		return "PDF TEST";
+		return extractPdfText(buffer);
 	}
 
 	if (isDocx) {
