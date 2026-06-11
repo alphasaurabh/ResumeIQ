@@ -333,9 +333,18 @@ export async function parseResumeFile(inputFile) {
 	const file = await normalizeInputFile(inputFile);
 	const extractedText = await extractTextByType(file);
 
+	console.log("========== RAW PDF TEXT ==========");
+	console.log(extractedText);
+
 	const cleanedText = cleanResumeText(extractedText);
 
+	console.log("========== CLEANED TEXT ==========");
+	console.log(cleanedText);
+
 	const sections = extractSections(cleanedText);
+
+	console.log("========== SECTIONS ==========");
+	console.log(JSON.stringify(sections, null, 2));
 
 	const emailMatch = cleanedText.match(EMAIL_REGEX);
 
@@ -364,22 +373,17 @@ export async function parseResumeFile(inputFile) {
 			sections.certifications
 		),
 	};
-	console.log("\n========== SECTIONS ==========");
-	console.log(sections);
 
 	console.log("\n========== PROJECTS ==========");
 	console.log(JSON.stringify(parsedData.projects, null, 2));
 
+	console.log("\n========== EDUCATION ==========");
+	console.log(JSON.stringify(parsedData.education, null, 2));
+
 	console.log("\n========== EXPERIENCE ==========");
 	console.log(JSON.stringify(parsedData.experience, null, 2));
 
-	console.log("\n========== SKILLS ==========");
-	console.log(parsedData.skills);
-
-	console.log("=============================\n");
-
 	const parseConfidence = calculateParseScore(parsedData);
-
 	const ats = scoreResume(parsedData);
 
 	return {
@@ -387,5 +391,6 @@ export async function parseResumeFile(inputFile) {
 		parseConfidence,
 		ats,
 	};
-
 }
+
+export default parseResumeFile;
