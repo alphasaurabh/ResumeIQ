@@ -1,6 +1,4 @@
 import mammoth from "mammoth";
-import nlp from "compromise";
-import natural from "natural";
 import extractPdfText from "../lib/pdf/extractPdfText";
 import cleanResumeText from "../lib/parser/cleanResumeText";
 import extractSections from "../lib/parser/extractSections";
@@ -10,8 +8,6 @@ import extractEducation from "../lib/parser/extractEducation";
 import extractExperience from "../lib/parser/extractExperience";
 import calculateParseScore from "../lib/parser/metrics/calculateParseScore";
 import scoreResume from "../lib/ats/atsScorer";
-
-const sentenceTokenizer = new natural.SentenceTokenizer();
 
 const EMAIL_REGEX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const DENY_LIST = [
@@ -272,38 +268,24 @@ const looksLikeNameLine = (line) => {
 };
 
 const extractName = (fullText, sections) => {
-	const headerBlock = sections.header || fullText.split("\n").slice(0, 8).join("\n");
-	const people = nlp(headerBlock).people().out("array");
-
-	if (people.length > 0) {
-		const candidate = people[0].trim();
-		if (looksLikeNameLine(candidate)) {
-			return candidate;
-		}
-	}
+	const headerBlock =
+		sections.header ||
+		fullText.split("\n").slice(0, 8).join("\n");
 
 	const candidates = headerBlock
 		.split("\n")
 		.map((line) => line.trim())
-		.filter((line) => looksLikeNameLine(line));
+		.filter(looksLikeNameLine);
 
-	if (candidates.length === 0) {
+	if (!candidates.length) {
 		return "";
 	}
 
-	candidates.sort((a, b) => {
-		const aWords = a.split(" ").length;
-		const bWords = b.split(" ").length;
-
-		// Prefer 2–4 word names
-		const aScore = Math.abs(3 - aWords);
-		const bScore = Math.abs(3 - bWords);
-
-		return aScore - bScore;
-	});
-
-
-	return candidates[0];
+	return candidates.sort(
+		(a, b) =>
+			Math.abs(3 - a.split(" ").length) -
+			Math.abs(3 - b.split(" ").length)
+	)[0];
 };
 
 const splitSectionEntries = (sectionText = "") => {
@@ -311,77 +293,58 @@ const splitSectionEntries = (sectionText = "") => {
 		return [];
 	}
 
-	const lines = sectionText
-		.split("\n")
-		.map((line) => line.replace(/^[-*•\u2022\d.)\s]+/, "").trim())
-		.filter(Boolean);
-
-	const entries = [];
-
-	for (const line of lines) {
-		const sentences = sentenceTokenizer.tokenize(line);
-		if (sentences.length === 0) {
-			continue;
-		}
-
-		entries.push(line);
-	}
-
-	return Array.from(new Set(entries));
+	return Array.from(
+		new Set(
+			sectionText
+				.split("\n")
+				.map((line) =>
+					line.replace(/^[-*•\u2022\d.)\s]+/, "").trim()
+				)
+				.filter(Boolean)
+		)
+	);
 };
 export async function parseResumeFile(inputFile) {
 	const file = await normalizeInputFile(inputFile);
-	const extractedText = await extractTextByType(file);
 
-	console.log("========== RAW PDF TEXT ==========");
-	console.log(extractedText);
+	const extractedText =
+		await extractTextByType(file);
 
-	const cleanedText = cleanResumeText(extractedText);
+	const cleanedText =
+		cleanResumeText(extractedText);
 
-	console.log("========== CLEANED TEXT ==========");
-	console.log(cleanedText);
+	const sections =
+		extractSections(cleanedText);
 
-	const sections = extractSections(cleanedText);
+	const emailMatch =
+		cleanedText.match(EMAIL_REGEX);
 
-	console.log("========== SECTIONS ==========");
-	console.log(JSON.stringify(sections, null, 2));
-
-	const emailMatch = cleanedText.match(EMAIL_REGEX);
+	const [
+		skills,
+		projects,
+		education,
+		experience,
+		certifications,
+	] = await Promise.all([
+		Promise.resolve(extractSkills(sections.skills)),
+		Promise.resolve(extractProjects(sections.projects)),
+		Promise.resolve(extractEducation(sections.education)),
+		Promise.resolve(extractExperience(sections.experience)),
+		Promise.resolve(
+			splitSectionEntries(sections.certifications)
+		),
+	]);
 
 	const parsedData = {
 		name: extractName(cleanedText, sections),
-		email: emailMatch ? emailMatch[0] : "",
+		email: emailMatch?.[0] || "",
 		links: extractLinks(cleanedText),
-
-		skills: extractSkills(
-			`${sections.skills}\n${cleanedText}`
-		),
-
-		projects: extractProjects(
-			sections.projects
-		),
-
-		education: extractEducation(
-			sections.education
-		),
-
-		experience: extractExperience(
-			sections.experience
-		),
-
-		certifications: splitSectionEntries(
-			sections.certifications
-		),
+		skills,
+		projects,
+		education,
+		experience,
+		certifications,
 	};
-
-	console.log("\n========== PROJECTS ==========");
-	console.log(JSON.stringify(parsedData.projects, null, 2));
-
-	console.log("\n========== EDUCATION ==========");
-	console.log(JSON.stringify(parsedData.education, null, 2));
-
-	console.log("\n========== EXPERIENCE ==========");
-	console.log(JSON.stringify(parsedData.experience, null, 2));
 
 	const parseConfidence = calculateParseScore(parsedData);
 	const ats = scoreResume(parsedData);
